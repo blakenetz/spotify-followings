@@ -5,6 +5,10 @@
 import { createCookie } from "@remix-run/node";
 import { randomBytes } from "crypto";
 
+import Api, { SpotifyToken } from "./spotifySingleton.server";
+
+type TokenResponse = { status: "ok" | "error" | "state_mismatch" };
+
 const redirectUri =
   (process.env.NODE_ENV === "production"
     ? "http://localhost:3000"
@@ -23,11 +27,22 @@ function generateRandomString() {
   return randomBytes(60).toString("hex").slice(0, 16);
 }
 
+function getSpotifyHeaders(): HeadersInit {
+  const authBase64 = Buffer.from([clientId, clientSecret].join(":")).toString(
+    "base64"
+  );
+
+  return {
+    "content-type": "application/x-www-form-urlencoded",
+    Authorization: `Basic ${authBase64}`,
+  };
+}
+
 export const spotifyState = createCookie("spotify_auth_state", {
   maxAge: 60 * 24 * 7,
 });
 
-export async function getLoginRedirect(): Promise<{
+export async function getSpotifyLoginResource(): Promise<{
   url: string;
   init: ResponseInit;
 }> {
@@ -56,7 +71,7 @@ export async function getLoginRedirect(): Promise<{
   };
 }
 
-export async function fetchToken(request: Request) {
+export async function fetchToken(request: Request): Promise<TokenResponse> {
   const { searchParams } = new URL(request.url);
 
   const code = searchParams.get("code") ?? "";
@@ -81,17 +96,10 @@ export async function fetchToken(request: Request) {
     redirect_uri: redirectUri,
   }).toString();
 
-  const authBase64 = Buffer.from([clientId, clientSecret].join(":")).toString(
-    "base64"
-  );
-
   const init: RequestInit = {
     method: "POST",
     body,
-    headers: {
-      "content-type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${authBase64}`,
-    },
+    headers: getSpotifyHeaders(),
   };
 
   const response = await fetch("https://accounts.spotify.com/api/token", init);
@@ -100,8 +108,34 @@ export async function fetchToken(request: Request) {
     return { status: "error" };
   }
 
-  const data = await response.json();
-  console.log(data);
+  const data: SpotifyToken = await response.json();
+
+  Api.storeToken(data);
+
+  return { status: "ok" };
+}
+
+export async function refreshToken(): Promise<TokenResponse> {
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: Api.token.refresh_token!,
+  }).toString();
+
+  const init: RequestInit = {
+    method: "POST",
+    body,
+    headers: getSpotifyHeaders(),
+  };
+
+  const response = await fetch("https://accounts.spotify.com/api/token", init);
+
+  if (response.status !== 200) {
+    return { status: "error" };
+  }
+
+  const data: SpotifyToken = await response.json();
+
+  Api.storeToken(data);
 
   return { status: "ok" };
 }

@@ -1,8 +1,8 @@
 import { Button } from "@mantine/core";
 import { type MetaFunction, redirect } from "@remix-run/node";
-import { Form } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 
-import { getLoginRedirect } from "~/api/spotify.server";
+import { getSpotifyLoginResource } from "~/api/spotify.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -15,11 +15,17 @@ export const meta: MetaFunction = () => {
 };
 
 export async function action() {
-  const { url, init } = await getLoginRedirect();
+  const { url, init } = await getSpotifyLoginResource();
   return redirect(url, init);
 }
 
+export async function loader() {
+  return false;
+}
+
 export default function Index() {
+  const _isLoggedIn = useLoaderData<typeof loader>();
+
   return (
     <section>
       <h1>Welcome</h1>
