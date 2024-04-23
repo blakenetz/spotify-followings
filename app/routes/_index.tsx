@@ -1,13 +1,16 @@
 import { Button } from "@mantine/core";
 import { type MetaFunction, redirect } from "@remix-run/node";
-import { Form, useActionData, useNavigation } from "@remix-run/react";
+import { Form } from "@remix-run/react";
 
 import { getLoginRedirect } from "~/api/spotify.server";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "New Remix App" },
-    { name: "description", content: "Welcome to Remix!" },
+    { title: "Spotify following" },
+    {
+      name: "description",
+      content: "See what your Spotify followings are up to!",
+    },
   ];
 };
 
@@ -17,9 +20,6 @@ export async function action() {
 }
 
 export default function Index() {
-  const _actionData = useActionData<typeof action>();
-  const _navigation = useNavigation();
-
   return (
     <section>
       <h1>Welcome</h1>

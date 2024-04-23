@@ -75,11 +75,11 @@ export async function fetchToken(request: Request) {
     return { status: "state_mismatch" };
   }
 
-  const body = {
+  const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
     redirect_uri: redirectUri,
-  };
+  }).toString();
 
   const authBase64 = Buffer.from([clientId, clientSecret].join(":")).toString(
     "base64"
@@ -87,14 +87,21 @@ export async function fetchToken(request: Request) {
 
   const init: RequestInit = {
     method: "POST",
-    body: JSON.stringify(body),
+    body,
     headers: {
       "content-type": "application/x-www-form-urlencoded",
       Authorization: `Basic ${authBase64}`,
     },
   };
 
-  const _data = await fetch("https://accounts.spotify.com/api/token", init);
+  const response = await fetch("https://accounts.spotify.com/api/token", init);
+
+  if (response.status !== 200) {
+    return { status: "error" };
+  }
+
+  const data = await response.json();
+  console.log(data);
 
   return { status: "ok" };
 }
