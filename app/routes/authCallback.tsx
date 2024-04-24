@@ -1,10 +1,17 @@
 import { LoaderFunction, redirect } from "@remix-run/node";
 
-import { fetchToken } from "~/api/spotify.server";
+import { fetchToken, fetchUser } from "~/api/spotify.server";
 
 export const loader: LoaderFunction = async ({ request }) => {
-  const res = await fetchToken(request);
+  const tokenResponse = await fetchToken(request);
 
-  const query = new URLSearchParams(res).toString();
+  if (tokenResponse.status !== "ok") {
+    const query = new URLSearchParams(tokenResponse).toString();
+    redirect(`/?${query}`);
+  }
+
+  const userResponse = await fetchUser();
+
+  const query = new URLSearchParams({ status: userResponse.status }).toString();
   redirect(`/?${query}`);
 };

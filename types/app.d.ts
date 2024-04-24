@@ -1,4 +1,4 @@
-export type Status = "ok" | "error" | "state_mismatch";
+export type Status = "ok" | "error" | "state_mismatch" | "invalid_token";
 
 export type StandardResponse<T = object> = {
   status: Status;
@@ -13,8 +13,8 @@ export type SpotifyToken = {
 } & { expires_in: number };
 
 export interface SavedToken
-  extends Partial<Pick<SpotifyToken, "access_token" | "refresh_token">> {
-  expires?: Date;
+  extends Pick<SpotifyToken, "access_token" | "refresh_token"> {
+  expires: Date;
 }
 
 /** @see https://developer.spotify.com/documentation/web-api/reference/get-current-users-profile */
@@ -26,6 +26,6 @@ export type SpotifyUser = {
 };
 
 export interface SavedUser
-  extends Partial<Pick<SpotifyUser, "display_name" | "href" | "id">> {
-  image?: string;
+  extends Pick<SpotifyUser, "display_name" | "href" | "id"> {
+  image: string;
 }

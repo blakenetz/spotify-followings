@@ -4,7 +4,12 @@
 
 import { createCookie } from "@remix-run/node";
 import { randomBytes } from "crypto";
-import { SpotifyToken, SpotifyUser, StandardResponse } from "types/app";
+import {
+  SavedUser,
+  SpotifyToken,
+  SpotifyUser,
+  StandardResponse,
+} from "types/app";
 
 import Api from "./spotifySingleton.server";
 
@@ -26,14 +31,10 @@ function generateRandomString() {
   return randomBytes(60).toString("hex").slice(0, 16);
 }
 
-function getSpotifyHeaders(): HeadersInit {
-  const authBase64 = Buffer.from([clientId, clientSecret].join(":")).toString(
-    "base64"
-  );
-
+function getSpotifyHeaders(accessToken: string): HeadersInit {
   return {
     "content-type": "application/x-www-form-urlencoded",
-    Authorization: `Basic ${authBase64}`,
+    Authorization: `Basic ${accessToken}`,
   };
 }
 
@@ -98,7 +99,7 @@ export async function fetchToken(request: Request): Promise<StandardResponse> {
   const init: RequestInit = {
     method: "POST",
     body,
-    headers: getSpotifyHeaders(),
+    headers: getSpotifyHeaders(Api.clientToken),
   };
 
   const response = await fetch("https://accounts.spotify.com/api/token", init);
@@ -115,6 +116,8 @@ export async function fetchToken(request: Request): Promise<StandardResponse> {
 }
 
 export async function refreshToken(): Promise<StandardResponse> {
+  if (!Api.token) return { status: "invalid_token" };
+
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: Api.token.refresh_token!,
@@ -123,7 +126,7 @@ export async function refreshToken(): Promise<StandardResponse> {
   const init: RequestInit = {
     method: "POST",
     body,
-    headers: getSpotifyHeaders(),
+    headers: getSpotifyHeaders(Api.clientToken),
   };
 
   const response = await fetch("https://accounts.spotify.com/api/token", init);
@@ -139,12 +142,19 @@ export async function refreshToken(): Promise<StandardResponse> {
   return { status: "ok" };
 }
 
-export async function getUser(): Promise<
-  StandardResponse<{ user?: SpotifyUser }>
+export async function fetchUser(): Promise<
+  StandardResponse<{ user?: SavedUser }>
 > {
+  // Validate
+  if (!Api.token) return { status: "invalid_token" };
+  if (Api.isExpired()) {
+    const { status } = await refreshToken();
+    if (status !== "ok") return { status };
+  }
+
   const init: RequestInit = {
     method: "GET",
-    headers: getSpotifyHeaders(),
+    headers: getSpotifyHeaders(Api.token.access_token),
   };
 
   const response = await fetch("https://api.spotify.com/v1/me", init);
@@ -157,5 +167,15 @@ export async function getUser(): Promise<
 
   Api.storeUser(data);
 
-  return { status: "ok", user: data };
+  return { status: "ok", user: Api.user! };
+}
+
+export async function getUser(): Promise<
+  StandardResponse<{ user?: SavedUser }>
+> {
+  const user = Api.user;
+
+  if (user) return { status: "ok", user };
+
+  return fetchUser();
 }

@@ -5,13 +5,32 @@ const keys = ["user"] as const;
 type Key = (typeof keys)[number];
 type CacheItem<K = Key> = K extends "user" ? SavedUser : never;
 
+const clientId = process.env.SPOTIFY_CLIENT_ID!;
+const clientSecret = process.env.SPOTIFY_CLIENT_SECRET!;
+
+if (!clientId || !clientSecret) {
+  throw new Error(
+    "Invalid config. Please set `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` env variables"
+  );
+}
+
 class Api {
   #cache: LRUCache<Key, CacheItem>;
-  #token: SavedToken;
+  /**
+   * A note on tokens:
+   *
+   * `clientToken` is used for initial auth requests
+   * all other queries should use the `token.access_token`
+   */
+  #token: SavedToken | null;
+  #clientToken: string;
 
   constructor() {
     this.#cache = new LRUCache({ ttl: 1000 * 60 * 60, max: 100 });
-    this.#token = {};
+    this.#token = null;
+    this.#clientToken = Buffer.from(
+      [clientId, clientSecret].join(":")
+    ).toString("base64");
   }
 
   private fetchFromCache(key: Key) {
@@ -22,6 +41,10 @@ class Api {
 
   private storeInCache(key: Key, value: CacheItem): void {
     this.#cache.set(key, value);
+  }
+
+  isExpired() {
+    return this.#token!.expires < new Date();
   }
 
   storeToken(data: SpotifyToken) {
@@ -37,13 +60,12 @@ class Api {
     this.#token = token;
   }
 
-  isExpired() {
-    const { expires } = this.#token;
-    return Boolean(expires && expires < new Date());
-  }
-
   get token() {
     return this.#token;
+  }
+
+  get clientToken() {
+    return this.#clientToken;
   }
 
   storeUser(data: SpotifyUser) {
@@ -55,6 +77,12 @@ class Api {
     };
 
     this.storeInCache("user", user);
+  }
+
+  get user() {
+    const cachedUser = this.fetchFromCache("user");
+    if (!Object.keys(cachedUser).length) return null;
+    return cachedUser;
   }
 }
 
