@@ -4,12 +4,9 @@
 
 import { createCookie } from "@remix-run/node";
 import { randomBytes } from "crypto";
+import { SpotifyToken, SpotifyUser, StandardResponse } from "types/app";
 
-import Api, { SpotifyToken, SpotifyUser } from "./spotifySingleton.server";
-
-type StandardResponse<T = object> = {
-  status: "ok" | "error" | "state_mismatch";
-} & T;
+import Api from "./spotifySingleton.server";
 
 const redirectUri =
   (process.env.NODE_ENV === "production"

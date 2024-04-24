@@ -1,6 +1,13 @@
-import { AppShell } from "@mantine/core";
-import { type MetaFunction, redirect } from "@remix-run/node";
+import { AppShell, Notification } from "@mantine/core";
+import { useToggle } from "@mantine/hooks";
+import {
+  json,
+  LoaderFunctionArgs,
+  type MetaFunction,
+  redirect,
+} from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
+import { Status } from "types/app";
 
 import { getSpotifyLoginResource } from "~/api/spotify.server";
 import Welcome from "~/components/welcome";
@@ -20,16 +27,26 @@ export async function action() {
   return redirect(url, init);
 }
 
-export async function loader() {
-  return false;
+export async function loader({ request }: LoaderFunctionArgs) {
+  const status =
+    (new URL(request.url).searchParams.get("status") as Status) ?? "ok";
+
+  return json({ status });
 }
 
 export default function Index() {
-  const _isLoggedIn = useLoaderData<typeof loader>();
+  const { status } = useLoaderData<typeof loader>();
+  const [hide, setHide] = useToggle();
 
   return (
     <AppShell padding="md">
       <Welcome />
+
+      {status !== "ok" && hide !== true && (
+        <Notification title="Sorry!" onClose={setHide} color="red">
+          There's some gunk in the gears. Maybe try again?
+        </Notification>
+      )}
     </AppShell>
   );
 }
