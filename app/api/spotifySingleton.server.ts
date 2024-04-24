@@ -1,5 +1,11 @@
 import { LRUCache } from "lru-cache";
-import { SavedToken, SavedUser, SpotifyToken, SpotifyUser } from "types/app";
+import {
+  SavedToken,
+  SavedUser,
+  SpotifyToken,
+  SpotifyUser,
+  StandardResponse,
+} from "types/app";
 
 const keys = ["user"] as const;
 type Key = (typeof keys)[number];
@@ -43,10 +49,6 @@ class Api {
     this.#cache.set(key, value);
   }
 
-  isExpired() {
-    return this.#token!.expires < new Date();
-  }
-
   storeToken(data: SpotifyToken) {
     const expires = new Date();
     expires.setSeconds(expires.getSeconds() + data.expires_in);
@@ -66,6 +68,16 @@ class Api {
 
   get clientToken() {
     return this.#clientToken;
+  }
+
+  isExpired() {
+    return this.#token!.expires < new Date();
+  }
+
+  validateToken(): StandardResponse {
+    if (!this.#token) return { status: "invalid_token" };
+
+    return { status: this.isExpired() ? "expired_token" : "ok" };
   }
 
   storeUser(data: SpotifyUser) {

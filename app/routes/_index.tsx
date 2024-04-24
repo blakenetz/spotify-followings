@@ -31,6 +31,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const status =
     (new URL(request.url).searchParams.get("status") as Status) ?? "ok";
 
+  if (status !== "ok") return json({ status });
+
   return json({ status });
 }
 

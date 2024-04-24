@@ -5,6 +5,7 @@
 import { createCookie } from "@remix-run/node";
 import { randomBytes } from "crypto";
 import {
+  SavedToken,
   SavedUser,
   SpotifyToken,
   SpotifyUser,
@@ -142,19 +143,29 @@ export async function refreshToken(): Promise<StandardResponse> {
   return { status: "ok" };
 }
 
+async function getToken(): Promise<StandardResponse<{ token: SavedToken }>> {
+  const { status } = Api.validateToken();
+
+  if (status === "ok") return { status: "ok", token: Api.token! };
+  if (status === "expired_token") {
+    const { status: refreshStatus } = await refreshToken();
+    if (refreshStatus === "ok") return { status: "ok", token: Api.token! };
+    throw new Error(
+      `Unable to get refresh token with status: ${refreshStatus}`
+    );
+  }
+
+  throw new Error(`Unable to get token with status: ${status}`);
+}
+
 export async function fetchUser(): Promise<
   StandardResponse<{ user?: SavedUser }>
 > {
-  // Validate
-  if (!Api.token) return { status: "invalid_token" };
-  if (Api.isExpired()) {
-    const { status } = await refreshToken();
-    if (status !== "ok") return { status };
-  }
+  const { token } = await getToken();
 
   const init: RequestInit = {
     method: "GET",
-    headers: getSpotifyHeaders(Api.token.access_token),
+    headers: getSpotifyHeaders(token.access_token),
   };
 
   const response = await fetch("https://api.spotify.com/v1/me", init);
@@ -171,11 +182,31 @@ export async function fetchUser(): Promise<
 }
 
 export async function getUser(): Promise<
-  StandardResponse<{ user?: SavedUser }>
+  StandardResponse<{ user: SavedUser }>
 > {
   const user = Api.user;
 
   if (user) return { status: "ok", user };
 
-  return fetchUser();
+  const { status, user: fetchedUser } = await fetchUser();
+  if (status === "ok") return { status: "ok", user: fetchedUser! };
+
+  throw new Error(`Unable to get user with status: ${status}`);
+}
+
+export async function fetchFollowings(): Promise<StandardResponse> {
+  const { token } = await getToken();
+  const { user } = await getUser();
+
+  const init: RequestInit = {
+    method: "GET",
+    headers: getSpotifyHeaders(token.access_token),
+  };
+
+  const _response = await fetch(
+    `https://spclient.wg.spotify.com/user-profile-view/v3/profile/${user.id}/following`,
+    init
+  );
+
+  return { status: "ok" };
 }

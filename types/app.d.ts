@@ -1,4 +1,9 @@
-export type Status = "ok" | "error" | "state_mismatch" | "invalid_token";
+export type Status =
+  | "ok"
+  | "error"
+  | "state_mismatch"
+  | "invalid_token"
+  | "expired_token";
 
 export type StandardResponse<T = object> = {
   status: Status;
