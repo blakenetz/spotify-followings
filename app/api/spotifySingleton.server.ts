@@ -1,8 +1,6 @@
 import { LRUCache } from "lru-cache";
 
-/**
- * @see https://developer.spotify.com/documentation/web-api/tutorials/code-flow#response-1
- */
+/** @see https://developer.spotify.com/documentation/web-api/tutorials/code-flow#response-1 */
 export type SpotifyToken = {
   access_token: string;
   token_type: string;
@@ -10,13 +8,30 @@ export type SpotifyToken = {
   refresh_token: string;
 } & { expires_in: number };
 
-export interface SavedToken
+interface SavedToken
   extends Partial<Pick<SpotifyToken, "access_token" | "refresh_token">> {
   expires?: Date;
 }
 
+/** @see https://developer.spotify.com/documentation/web-api/reference/get-current-users-profile */
+export type SpotifyUser = {
+  display_name: string;
+  href: string;
+  id: string;
+  images: { url: string }[];
+};
+
+interface SavedUser
+  extends Partial<Pick<SpotifyUser, "display_name" | "href" | "id">> {
+  image?: string;
+}
+
+const keys = ["user"] as const;
+type Key = (typeof keys)[number];
+type CacheItem<K = Key> = K extends "user" ? SavedUser : never;
+
 class Api {
-  #cache: LRUCache<string, string>;
+  #cache: LRUCache<Key, CacheItem>;
   #token: SavedToken;
 
   constructor() {
@@ -24,14 +39,14 @@ class Api {
     this.#token = {};
   }
 
-  private fetchFromCache(key: string) {
-    const item = this.#cache.get(key);
+  private fetchFromCache(key: Key) {
+    const item = this.#cache.get(key) as CacheItem<typeof key>;
 
     return item;
   }
 
-  private storeInCache(key: string, value: string) {
-    return this.#cache.set(key, value);
+  private storeInCache(key: Key, value: CacheItem): void {
+    this.#cache.set(key, value);
   }
 
   storeToken(data: SpotifyToken) {
@@ -54,6 +69,17 @@ class Api {
 
   get token() {
     return this.#token;
+  }
+
+  storeUser(data: SpotifyUser) {
+    const user: SavedUser = {
+      display_name: data.display_name,
+      href: data.href,
+      id: data.id,
+      image: data.images[0].url,
+    };
+
+    this.storeInCache("user", user);
   }
 }
 

@@ -5,9 +5,11 @@
 import { createCookie } from "@remix-run/node";
 import { randomBytes } from "crypto";
 
-import Api, { SpotifyToken } from "./spotifySingleton.server";
+import Api, { SpotifyToken, SpotifyUser } from "./spotifySingleton.server";
 
-type TokenResponse = { status: "ok" | "error" | "state_mismatch" };
+type StandardResponse<T = object> = {
+  status: "ok" | "error" | "state_mismatch";
+} & T;
 
 const redirectUri =
   (process.env.NODE_ENV === "production"
@@ -48,8 +50,8 @@ export async function getSpotifyLoginResource(): Promise<{
 }> {
   const state = generateRandomString();
   const scope = [
-    "user-read-email",
     "user-read-private",
+    "user-read-email",
     "user-follow-read",
   ].join(" ");
 
@@ -71,7 +73,7 @@ export async function getSpotifyLoginResource(): Promise<{
   };
 }
 
-export async function fetchToken(request: Request): Promise<TokenResponse> {
+export async function fetchToken(request: Request): Promise<StandardResponse> {
   const { searchParams } = new URL(request.url);
 
   const code = searchParams.get("code") ?? "";
@@ -115,7 +117,7 @@ export async function fetchToken(request: Request): Promise<TokenResponse> {
   return { status: "ok" };
 }
 
-export async function refreshToken(): Promise<TokenResponse> {
+export async function refreshToken(): Promise<StandardResponse> {
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: Api.token.refresh_token!,
@@ -138,4 +140,25 @@ export async function refreshToken(): Promise<TokenResponse> {
   Api.storeToken(data);
 
   return { status: "ok" };
+}
+
+export async function getUser(): Promise<
+  StandardResponse<{ user?: SpotifyUser }>
+> {
+  const init: RequestInit = {
+    method: "GET",
+    headers: getSpotifyHeaders(),
+  };
+
+  const response = await fetch("https://api.spotify.com/v1/me", init);
+
+  if (response.status !== 200) {
+    return { status: "error" };
+  }
+
+  const data: SpotifyUser = await response.json();
+
+  Api.storeUser(data);
+
+  return { status: "ok", user: data };
 }

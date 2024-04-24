@@ -30,7 +30,8 @@ module.exports = {
     "simple-import-sort/imports": "error",
     "simple-import-sort/exports": "error",
     "import/no-named-as-default": 0,
-    "import/prefer-default-export": 0
+    "import/prefer-default-export": 0,
+    
   },
   plugins: ["simple-import-sort"],
 
@@ -61,6 +62,9 @@ module.exports = {
           typescript: {},
         },
       },
+      rules: {
+        "react/no-unescaped-entities": 0
+      }
     },
 
     // Typescript
