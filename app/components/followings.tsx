@@ -1,11 +1,11 @@
 import { Button, Text, Title } from "@mantine/core";
 import { Form } from "@remix-run/react";
 
-import styles from "~/styles/welcome.module.css";
+// import styles from "~/styles/welcome.module.css";
 
-export default function Welcome() {
+export default function Followings() {
   return (
-    <section className={styles.welcome}>
+    <section>
       <Title>Spotify Followings</Title>
       <Text>
         Spotify doesn't seem to give you the best view of your followings, so
@@ -13,7 +13,7 @@ export default function Welcome() {
       </Text>
       <Text>Sign in to get goin'</Text>
       <Form method="post">
-        <Button type="submit">Login</Button>
+        <Button type="submit">Go to followings</Button>
       </Form>
     </section>
   );

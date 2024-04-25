@@ -18,7 +18,7 @@ export type SpotifyToken = {
 } & { expires_in: number };
 
 export interface SavedToken
-  extends Pick<SpotifyToken, "access_token" | "refresh_token"> {
+  extends Pick<SpotifyToken, "access_token" | "refresh_token" | "token_type"> {
   expires: Date;
 }
 
@@ -34,3 +34,13 @@ export interface SavedUser
   extends Pick<SpotifyUser, "display_name" | "href" | "id"> {
   image: string;
 }
+
+export type SpotifyFollowing = {
+  image_url: string;
+  name: string;
+  uri: string;
+};
+
+export type SpotifyResponse<T> = {
+  error: { status: number; message: string };
+} & T;

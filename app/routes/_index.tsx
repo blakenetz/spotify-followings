@@ -5,11 +5,13 @@ import {
   LoaderFunctionArgs,
   type MetaFunction,
   redirect,
+  TypedResponse,
 } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { Status } from "types/app";
 
-import { getSpotifyLoginResource } from "~/api/spotify.server";
+import { getSpotifyLoginResource, isAuthenticated } from "~/api/spotify.server";
+import Followings from "~/components/followings";
 import Welcome from "~/components/welcome";
 
 export const meta: MetaFunction = () => {
@@ -27,22 +29,39 @@ export async function action() {
   return redirect(url, init);
 }
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: LoaderFunctionArgs): Promise<
+  TypedResponse<{
+    status: Status;
+    isAuthenticated: boolean;
+    followings?: [];
+  }>
+> {
+  //  check redirect status
   const status =
     (new URL(request.url).searchParams.get("status") as Status) ?? "ok";
+  if (status !== "ok")
+    return json({ status, isAuthenticated: false, followings: [] });
 
-  if (status !== "ok") return json({ status });
+  // check auth state
+  const isLoggedIn = await isAuthenticated();
+  if (!isLoggedIn)
+    return json({ status: "ok", isAuthenticated: false, following: [] });
 
-  return json({ status });
+  return json({ status: "ok", isAuthenticated: true, following: [] });
+
+  // const { followings: _followings } = await fetchFollowings();
+  // return json({ status: "ok", isAuthenticated: false, following: [] });
 }
 
 export default function Index() {
-  const { status } = useLoaderData<typeof loader>();
+  const { status, isAuthenticated } = useLoaderData<typeof loader>();
   const [hide, setHide] = useToggle();
 
   return (
     <AppShell padding="md">
-      <Welcome />
+      <AppShell.Main>
+        {isAuthenticated ? <Followings /> : <Welcome />}
+      </AppShell.Main>
 
       {status !== "ok" && hide !== true && (
         <Notification title="Sorry!" onClose={setHide} color="red">

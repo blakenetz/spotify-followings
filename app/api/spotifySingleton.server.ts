@@ -29,14 +29,19 @@ class Api {
    * all other queries should use the `token.access_token`
    */
   #token: SavedToken | null;
-  #clientToken: string;
+  #clientToken: Pick<SavedToken, "token_type" | "access_token">;
+  #clientId: string;
 
   constructor() {
     this.#cache = new LRUCache({ ttl: 1000 * 60 * 60, max: 100 });
     this.#token = null;
-    this.#clientToken = Buffer.from(
-      [clientId, clientSecret].join(":")
-    ).toString("base64");
+    this.#clientToken = {
+      token_type: "Basic",
+      access_token: Buffer.from([clientId, clientSecret].join(":")).toString(
+        "base64"
+      ),
+    };
+    this.#clientId = clientId;
   }
 
   private fetchFromCache(key: Key) {
@@ -56,6 +61,7 @@ class Api {
     const token: SavedToken = {
       access_token: data.access_token,
       refresh_token: data.access_token,
+      token_type: data.token_type,
       expires,
     };
 
@@ -68,6 +74,10 @@ class Api {
 
   get clientToken() {
     return this.#clientToken;
+  }
+
+  get clientId() {
+    return this.#clientId;
   }
 
   isExpired() {
@@ -93,6 +103,7 @@ class Api {
 
   get user() {
     const cachedUser = this.fetchFromCache("user");
+    if (!cachedUser) return null;
     if (!Object.keys(cachedUser).length) return null;
     return cachedUser;
   }

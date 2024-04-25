@@ -7,11 +7,11 @@ export const loader: LoaderFunction = async ({ request }) => {
 
   if (tokenResponse.status !== "ok") {
     const query = new URLSearchParams(tokenResponse).toString();
-    redirect(`/?${query}`);
+    return redirect(`/?${query}`);
   }
 
   const userResponse = await fetchUser();
 
   const query = new URLSearchParams({ status: userResponse.status }).toString();
-  redirect(`/?${query}`);
+  return redirect(`/?${query}`);
 };

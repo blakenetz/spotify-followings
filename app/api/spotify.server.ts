@@ -7,6 +7,8 @@ import { randomBytes } from "crypto";
 import {
   SavedToken,
   SavedUser,
+  SpotifyFollowing,
+  SpotifyResponse,
   SpotifyToken,
   SpotifyUser,
   StandardResponse,
@@ -19,23 +21,17 @@ const redirectUri =
     ? "http://localhost:3000"
     : "http://localhost:5173") + "/authCallback";
 
-const clientId = process.env.SPOTIFY_CLIENT_ID!;
-const clientSecret = process.env.SPOTIFY_CLIENT_SECRET!;
-
-if (!clientId || !clientSecret) {
-  throw new Error(
-    "Invalid config. Please set `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` env variables"
-  );
-}
-
 function generateRandomString() {
   return randomBytes(60).toString("hex").slice(0, 16);
 }
 
-function getSpotifyHeaders(accessToken: string): HeadersInit {
+function getSpotifyHeaders({
+  access_token,
+  token_type,
+}: Pick<SavedToken, "access_token" | "token_type">): HeadersInit {
   return {
     "content-type": "application/x-www-form-urlencoded",
-    Authorization: `Basic ${accessToken}`,
+    Authorization: [token_type, access_token].join(" "),
   };
 }
 
@@ -56,7 +52,7 @@ export async function getSpotifyLoginResource(): Promise<{
 
   const query = new URLSearchParams({
     response_type: "code",
-    client_id: clientId,
+    client_id: Api.clientId,
     scope: scope,
     redirect_uri: redirectUri,
     state,
@@ -104,12 +100,12 @@ export async function fetchToken(request: Request): Promise<StandardResponse> {
   };
 
   const response = await fetch("https://accounts.spotify.com/api/token", init);
+  const data: SpotifyResponse<SpotifyToken> = await response.json();
 
   if (response.status !== 200) {
+    console.error(data.error.message);
     return { status: "error" };
   }
-
-  const data: SpotifyToken = await response.json();
 
   Api.storeToken(data);
 
@@ -131,12 +127,12 @@ export async function refreshToken(): Promise<StandardResponse> {
   };
 
   const response = await fetch("https://accounts.spotify.com/api/token", init);
+  const data: SpotifyResponse<SpotifyToken> = await response.json();
 
   if (response.status !== 200) {
+    console.error(data.error.message);
     return { status: "error" };
   }
-
-  const data: SpotifyToken = await response.json();
 
   Api.storeToken(data);
 
@@ -165,16 +161,19 @@ export async function fetchUser(): Promise<
 
   const init: RequestInit = {
     method: "GET",
-    headers: getSpotifyHeaders(token.access_token),
+    headers: getSpotifyHeaders(token),
   };
 
+  console.log(getSpotifyHeaders(token));
+  console.log(getSpotifyHeaders(Api.clientToken));
+
   const response = await fetch("https://api.spotify.com/v1/me", init);
+  const data: SpotifyResponse<SpotifyUser> = await response.json();
 
   if (response.status !== 200) {
+    console.error(data.error.message);
     return { status: "error" };
   }
-
-  const data: SpotifyUser = await response.json();
 
   Api.storeUser(data);
 
@@ -194,19 +193,44 @@ export async function getUser(): Promise<
   throw new Error(`Unable to get user with status: ${status}`);
 }
 
-export async function fetchFollowings(): Promise<StandardResponse> {
+export async function fetchFollowings(): Promise<
+  StandardResponse<{ followings?: SpotifyFollowing[] }>
+> {
   const { token } = await getToken();
   const { user } = await getUser();
 
+  const headers = getSpotifyHeaders(token);
+
   const init: RequestInit = {
     method: "GET",
-    headers: getSpotifyHeaders(token.access_token),
+    headers: { ...headers, "Client-Token": Api.clientId },
   };
 
-  const _response = await fetch(
+  const response = await fetch(
     `https://spclient.wg.spotify.com/user-profile-view/v3/profile/${user.id}/following`,
     init
   );
+  const data: SpotifyResponse<{ profiles: SpotifyFollowing[] }> =
+    await response.json();
+
+  if (response.status !== 200) {
+    console.error(data.error.message);
+    return { status: "error" };
+  }
+
+  console.log(data);
 
   return { status: "ok" };
+}
+
+export async function isAuthenticated() {
+  let hasToken = false;
+  try {
+    const { status } = await getToken();
+    if (status === "ok") hasToken = true;
+  } catch (error) {
+    hasToken = false;
+  }
+
+  return hasToken;
 }
